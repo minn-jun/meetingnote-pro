@@ -1,0 +1,32 @@
+schema: spec-driven
+
+context: |
+  Language: ko
+  All artifacts must be written in ko.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+
+rules:
+  specs:
+    - 각 Requirement 본문 첫 줄에 근거 스토리보드 ID 와 퍼블리싱 파일을 주석으로 남길 것
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
