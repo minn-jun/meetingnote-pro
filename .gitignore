@@ -1,0 +1,28 @@
+# OS / 편집기
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# 환경 변수 · 비밀
+.env
+.env.*
+!.env.example
+
+# 의존성 · 빌드 산출물
+node_modules/
+dist/
+build/
+__pycache__/
+*.pyc
+.venv/
+
+# 로그
+*.log
+
+# Claude Code 개인 설정 · 투두가드 실행 기록
+.claude/settings.local.json
+.claude/todo-guard/
+.claude/todo-guard_걷어내기전_*/
+TODO.md.정리전백업_*
