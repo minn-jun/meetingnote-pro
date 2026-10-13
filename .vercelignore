@@ -4,9 +4,7 @@ publish/
 tests/
 openspec/
 .claude/
-.agents/
 TODO.md
 TODO-완료.md
 투두가드설명서.md
-skills-lock.json
 *.db
