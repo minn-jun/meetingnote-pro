@@ -65,7 +65,7 @@ def test_config_js_follows_server_setting(client, monkeypatch):
     from app.config import settings
     monkeypatch.setattr(settings, "max_upload_mb", 4)
     r = client.get("/config.js")
-    assert r.status_code == 200 and "maxUploadMb: 4" in r.text
+    assert r.status_code == 200 and "maxUploadMb: 4 }" in r.text
     assert "/config.js" not in client.get("/openapi.json").json()["paths"]
 
 

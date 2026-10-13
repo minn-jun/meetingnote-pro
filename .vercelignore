@@ -1,0 +1,12 @@
+# 배포에 필요 없는 것 - 함수 묶음에서 뺀다
+docs/
+publish/
+tests/
+openspec/
+.claude/
+.agents/
+TODO.md
+TODO-완료.md
+투두가드설명서.md
+skills-lock.json
+*.db

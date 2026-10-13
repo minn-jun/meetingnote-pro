@@ -33,16 +33,19 @@ def audio_kind(head: bytes) -> str | None:
 @router.post("/api/upload", response_model=UploadOut, summary="녹취 업로드 · 받아쓰기 (저장하지 않음)")
 def upload(file: UploadFile = File(..., description="mp3 또는 wav"),
            user: User = Depends(get_current_user), ai: AIProvider = Depends(get_ai)):
-    limit = settings.max_upload_mb * 1024 * 1024
+    limit = int(settings.max_upload_mb * 1024 * 1024)
     data = bytearray()
     while chunk := file.file.read(CHUNK):
         data.extend(chunk)
         if len(data) > limit:
-            raise ApiError(413, "PAYLOAD_TOO_LARGE", f"{settings.max_upload_mb}MB 를 넘는 파일은 올릴 수 없습니다")
+            raise ApiError(413, "PAYLOAD_TOO_LARGE", f"{settings.max_upload_mb:g}MB 를 넘는 파일은 올릴 수 없습니다")
     kind = audio_kind(bytes(data[:16]))
     if not kind:
         raise ApiError(415, "UNSUPPORTED_MEDIA_TYPE", "mp3 또는 wav 파일만 올릴 수 있습니다")
     body = upstream(ai.transcribe, bytes(data), file.filename or f"audio.{kind}")
+    if not body.strip():
+        # 말소리가 없는 녹취 - 빈 본문을 돌려주지 않고 알려 준다 (결정사항 D15)
+        raise ApiError(400, "VALIDATION_ERROR", "녹취에서 말소리를 찾지 못했습니다. 파일을 확인해 주세요")
     return UploadOut(body=body)
 
 

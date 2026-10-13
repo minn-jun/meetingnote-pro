@@ -52,6 +52,41 @@ def test_upload_provider_failure_is_502(client, h, fake_ai):
     assert (r.status_code, r.json()["code"]) == (502, "UPSTREAM_ERROR")
 
 
+def test_upload_without_speech_is_validation_error(client, h, fake_ai):
+    u = h.signup()
+    fake_ai.transcript = "  "
+    r = upload(client, u, WAV)
+    assert (r.status_code, r.json()["code"]) == (400, "VALIDATION_ERROR")
+
+
+def test_gemini_client_is_reused(monkeypatch):
+    """요청마다 새 클라이언트를 만들면 응답 전에 닫혀 실패한다 (실제 배포에서 난 버그)"""
+    from app.ai import GeminiProvider, get_ai
+    monkeypatch.setattr(settings, "stt_api_key", "test-key")
+    p = GeminiProvider()
+    assert p.client is p.client
+    assert get_ai() is get_ai()
+
+
+def test_transcribe_no_speech_marker_becomes_empty(monkeypatch):
+    from app import ai
+
+    class Resp:
+        text = " NO_SPEECH\n"
+
+    class Models:
+        def generate_content(self, **kw):
+            assert "NO_SPEECH" in kw["contents"][0]
+            return Resp()
+
+    class Client:
+        models = Models()
+
+    p = ai.GeminiProvider()
+    p._client = Client()
+    assert p.transcribe(WAV, "a.wav") == ""
+
+
 def test_upload_requires_login(client):
     assert client.post("/api/upload", files={"file": ("a.wav", WAV)}).status_code == 401
 

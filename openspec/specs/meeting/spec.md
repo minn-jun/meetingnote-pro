@@ -7,11 +7,15 @@
 
 ### Requirement: 녹취 업로드와 받아쓰기
 <!-- 근거: 스토리보드 C-06 · C-07 · C-08 · C-09 / publish/meetings.html (upload · upload-done · err-type · err-size) -->
-`POST /api/upload` 는 multipart 파일 하나를 받아 받아쓴 본문을 `{"body": "..."}` 로 돌려주어야 한다(SHALL). 저장은 하지 않는다. 형식은 확장자가 아니라 파일 내용으로 판정해 mp3 · wav 만 받고, 그 밖이면 `415 UNSUPPORTED_MEDIA_TYPE` 를 돌려주어야 한다(MUST). 크기가 상한(`MAX_UPLOAD_MB`, 로컬 25MB · 배포 4MB, D3)을 넘으면 `413 PAYLOAD_TOO_LARGE` 를 돌려주어야 한다. 받아쓰기 공급자 호출이 실패하면 `502 UPSTREAM_ERROR` 를 돌려주어야 한다 (D12).
+`POST /api/upload` 는 multipart 파일 하나를 받아 받아쓴 본문을 `{"body": "..."}` 로 돌려주어야 한다(SHALL). 저장은 하지 않는다. 형식은 확장자가 아니라 파일 내용으로 판정해 mp3 · wav 만 받고, 그 밖이면 `415 UNSUPPORTED_MEDIA_TYPE` 를 돌려주어야 한다(MUST). 크기가 상한(`MAX_UPLOAD_MB`, 로컬 25MB · 배포 4.2MB, D3)을 넘으면 `413 PAYLOAD_TOO_LARGE` 를 돌려주어야 한다. 받아쓰기 공급자 호출이 실패하면 `502 UPSTREAM_ERROR` 를 돌려주어야 한다 (D12). 녹취에 말소리가 없어 받아쓴 내용이 비면 `400 VALIDATION_ERROR` 를 돌려주어야 한다 (D15). 들리지 않은 말을 지어내서는 안 된다(MUST NOT).
 
 #### Scenario: wav 받아쓰기
 - **WHEN** 4MB 짜리 wav 파일을 올린다
 - **THEN** `200` 과 받아쓴 본문 텍스트가 돌아오고 회의록은 아직 생기지 않는다
+
+#### Scenario: 말소리가 없는 녹취
+- **WHEN** 신호음이나 무음만 든 wav 파일을 올린다
+- **THEN** `400 VALIDATION_ERROR` 가 돌아오고 지어낸 본문은 돌아오지 않는다
 
 #### Scenario: 확장자만 바꾼 파일
 - **WHEN** 내용이 mp4 인 파일을 이름만 `a.mp3` 로 바꿔 올린다

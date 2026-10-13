@@ -78,7 +78,7 @@ def root():
 @app.get("/config.js", include_in_schema=False)
 def config_js():
     # 화면 안내 문구가 서버 설정값을 따르게 한다 (결정사항 D3 · D15). API 가 아니라 화면용 스크립트
-    return Response(f"window.APP_CONFIG = {{ maxUploadMb: {settings.max_upload_mb} }};",
+    return Response(f"window.APP_CONFIG = {{ maxUploadMb: {settings.max_upload_mb:g} }};",
                     media_type="application/javascript")
 
 

@@ -20,7 +20,7 @@ class Settings:
     stt_model: str = field(default_factory=lambda: os.getenv("STT_MODEL", "gemini-3.8-flash"))
     summary_model: str = field(default_factory=lambda: os.getenv("SUMMARY_MODEL", "gemini-3.8-flash"))
     database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""))
-    max_upload_mb: int = field(default_factory=lambda: int(os.getenv("MAX_UPLOAD_MB", "25")))
+    max_upload_mb: float = field(default_factory=lambda: float(os.getenv("MAX_UPLOAD_MB", "25")))
     cors_origins: list[str] = field(default_factory=lambda: [
         o.strip() for o in os.getenv(
             "CORS_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000").split(",") if o.strip()

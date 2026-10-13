@@ -34,3 +34,6 @@ meetingnote.db
 .pytest_cache/
 *.egg-info/
 .vercel/
+
+.vercel
+.env*
