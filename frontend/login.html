@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeetingNote Pro - 로그인 / 회원가입</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="theme.js"></script>
+<script src="app.js"></script>
+</head>
+
+<body>
+
+<div class="absolute top-3 right-4 z-40" id="themeSlot"></div>
+
+<main class="flex-1 grid place-items-center px-5 py-10">
+  <div class="w-full max-w-[380px]">
+
+    <div class="flex items-center justify-center gap-2 mb-7">
+      <div data-ui="logoMarkLg">M</div>
+      <span class="text-xl font-extrabold tracking-tight">MeetingNote</span>
+    </div>
+
+    <form id="form" novalidate data-ui="panel" class="p-6 sm:p-7">
+      <!-- 세션 만료 - 24시간 지난 토큰으로 호출하면 여기로 온다 -->
+      <div id="boxExpired" class="hidden mb-5"></div>
+
+      <h1 id="title" class="text-lg font-extrabold mb-1">로그인</h1>
+      <p id="sub" data-ui="sub" class="text-[13px] mb-6">회의록과 할 일을 팀이 함께 관리</p>
+
+      <div class="space-y-4">
+        <div>
+          <label for="email" data-ui="label">이메일</label>
+          <input id="email" type="email" placeholder="user@example.com" autocomplete="email" data-ui="input">
+          <p id="errEmail" data-ui="errText" class="hidden"></p>
+        </div>
+
+        <div>
+          <label for="pw" data-ui="label">비밀번호</label>
+          <input id="pw" type="password" placeholder="8자 이상" autocomplete="current-password" data-ui="input">
+          <p id="errPw" data-ui="errText" class="hidden"></p>
+        </div>
+
+        <!-- 이름 - 회원가입에서만 표시 -->
+        <div id="nameWrap" class="hidden">
+          <label for="uname" data-ui="label">이름</label>
+          <input id="uname" type="text" placeholder="홍길동" autocomplete="name" data-ui="input">
+          <p id="errName" data-ui="errText" class="hidden"></p>
+        </div>
+
+        <!-- 초대코드 - 회원가입에서만 표시 -->
+        <div id="inviteWrap" class="hidden">
+          <label for="invite" data-ui="label">초대코드  <span data-ui="mute" class="font-normal">(선택)</span></label>
+          <input id="invite" type="text" placeholder="MN-7K2D" data-ui="input" class="font-mono tracking-widest">
+          <p id="errInvite" data-ui="errText" class="hidden"></p>
+          <p data-ui="help">비워 두면 가입 후 팀을 새로 만듦</p>
+        </div>
+
+        <!-- 폼 전체 알림 - 401 · 409 · 성공 -->
+        <div id="box" class="hidden"></div>
+
+        <button id="submit" type="submit" data-ui="btnPrimary" class="w-full">로그인</button>
+      </div>
+
+      <p id="switch" data-ui="sub" class="mt-5 text-center text-[13px]"></p>
+    </form>
+  </div>
+</main>
+
+<script>
+  App.boot();
+  const { $, api, message, notify, hide, toggleUI } = App;
+  const email = $("email"), pw = $("pw"), uname = $("uname"), invite = $("invite"), submit = $("submit");
+  let mode = "login", busy = false;
+
+  const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+  function clearErrors() {
+    ["errEmail", "errPw", "errName", "errInvite"].forEach((i) => $(i).classList.add("hidden"));
+    [email, pw, uname, invite].forEach((el) => toggleUI(el, "errBorder", false));
+    hide($("box"));
+  }
+  function fieldErr(id, input, msg) {
+    $(id).textContent = msg; $(id).classList.remove("hidden");
+    toggleUI(input, "errBorder", true);
+  }
+  function setBusy(on) {
+    busy = on; submit.disabled = on;
+    submit.textContent = on ? "처리 중..." : (mode === "login" ? "로그인" : "가입하기");
+  }
+
+  function setMode(next) {
+    mode = next;
+    clearErrors();
+    const signup = mode === "signup";
+    $("title").textContent = signup ? "회원가입" : "로그인";
+    $("sub").textContent = signup ? "이메일과 비밀번호만 있으면 시작" : "회의록과 할 일을 팀이 함께 관리";
+    $("nameWrap").classList.toggle("hidden", !signup);
+    $("inviteWrap").classList.toggle("hidden", !signup);
+    pw.autocomplete = signup ? "new-password" : "current-password";
+    submit.textContent = signup ? "가입하기" : "로그인";
+    $("switch").innerHTML = signup
+      ? `이미 계정이 있으신가요? <a href="#" id="toggle" class="${UI.link}">로그인</a>`
+      : `계정이 없으신가요? <a href="#" id="toggle" class="${UI.link}">회원가입</a>`;
+    $("toggle").onclick = (e) => { e.preventDefault(); setMode(signup ? "login" : "signup"); };
+  }
+
+  // 제출 전에는 오류를 띄우지 않는다. 형식과 8자는 화면에서 먼저 거른다
+  function validate() {
+    let ok = true;
+    if (!EMAIL_RE.test(email.value.trim())) { fieldErr("errEmail", email, "올바른 이메일 형식이 아닙니다"); ok = false; }
+    if (mode === "signup") {
+      if (pw.value.length < 8) { fieldErr("errPw", pw, "8자 이상 입력해 주세요"); ok = false; }
+      if (!uname.value.trim()) { fieldErr("errName", uname, "이름을 입력해 주세요"); ok = false; }
+    } else if (!pw.value) { fieldErr("errPw", pw, "비밀번호를 입력해 주세요"); ok = false; }
+    return ok;
+  }
+
+  function enter(res) {
+    App.setToken(res.token);
+    App.setTeam(res.team_id, res.team_name);
+    notify($("box"), "green", "성공. 이동 중...");
+    App.go(res.team_id ? "/meetings.html" : "/team.html");
+  }
+
+  async function onSubmit() {
+    if (busy) return;
+    clearErrors();
+    if (!validate()) return;
+    setBusy(true);
+    try {
+      if (mode === "login") {
+        enter(await api("POST", "/api/auth/login", { email: email.value.trim(), password: pw.value }));
+        return;
+      }
+      const res = await api("POST", "/api/auth/signup",
+        { email: email.value.trim(), password: pw.value, name: uname.value.trim() });
+      App.setToken(res.token);
+      App.setTeam(null);
+      const code = invite.value.trim();
+      if (code) {
+        try {
+          const team = await api("POST", "/api/teams/join", { code });
+          res.team_id = team.id; res.team_name = team.name;
+        } catch (e) {
+          // 가입은 되고 팀 합류만 실패 - 계정은 그대로 두고 팀 화면으로 보낸다
+          fieldErr("errInvite", invite, message(e));
+          notify($("box"), "orange", "가입은 완료되었습니다", "팀 화면에서 초대코드를 다시 입력하거나 팀을 만들어 주세요");
+          setTimeout(() => App.go("/team.html"), 1800);
+          return;
+        }
+      }
+      enter(res);
+    } catch (e) {
+      if (e.code === "EMAIL_INVALID") fieldErr("errEmail", email, message(e));
+      else if (e.code === "PASSWORD_TOO_WEAK") fieldErr("errPw", pw, message(e));
+      else notify($("box"), "red", message(e));
+      setBusy(false);
+    }
+  }
+
+  $("form").addEventListener("submit", (e) => { e.preventDefault(); onSubmit(); });
+
+  setMode("login");
+  if (new URLSearchParams(location.search).get("expired")) {
+    notify($("boxExpired"), "red", "세션이 만료되었습니다", "24시간이 지나 다시 로그인해 주세요");
+    pw.focus();
+  }
+</script>
+</body>
+</html>

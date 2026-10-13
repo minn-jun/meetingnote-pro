@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeetingNote Pro - 내 정보</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="theme.js"></script>
+<script src="app.js"></script>
+</head>
+
+<body>
+
+<header id="header"></header>
+
+<main class="flex-1 w-full max-w-6xl mx-auto px-4 py-5 grid gap-4 lg:grid-cols-[1fr_1.3fr]">
+
+  <!-- 왼쪽: 계정 -->
+  <div class="space-y-4 min-w-0">
+    <form id="form" novalidate data-ui="panel" class="p-5">
+      <div class="flex items-center gap-3 mb-4">
+        <div id="avatar" data-ui="avatarLg"></div>
+        <div class="min-w-0">
+          <p class="text-[15px] font-extrabold truncate" id="who"></p>
+          <p data-ui="mute" class="text-[12px] truncate" id="mail"></p>
+        </div>
+        <span id="role" data-ui="badge" data-label="purple" class="hidden ml-auto bg-page dark:bg-chip"></span>
+      </div>
+
+      <label for="name" data-ui="label">이름</label>
+      <input id="name" data-ui="input" autocomplete="name">
+      <p id="errName" data-ui="errText" class="hidden"></p>
+
+      <div class="mt-3.5 grid gap-3 sm:grid-cols-2">
+        <div>
+          <label for="pw1" data-ui="label">새 비밀번호</label>
+          <input id="pw1" type="password" placeholder="8자 이상" autocomplete="new-password" data-ui="input">
+        </div>
+        <div>
+          <label for="pw2" data-ui="label">한 번 더</label>
+          <input id="pw2" type="password" placeholder="다시 입력" autocomplete="new-password" data-ui="input">
+        </div>
+      </div>
+      <p id="errPw" data-ui="errText" class="hidden"></p>
+
+      <div id="msg" class="hidden mt-3"></div>
+
+      <div class="mt-4 flex gap-2.5">
+        <button id="saveBtn" type="submit" data-ui="btnPrimary">저장</button>
+        <button id="logoutBtn" type="button" data-ui="btnGhost">로그아웃</button>
+      </div>
+      <p data-ui="mute" class="mt-3 text-[11px]">이메일은 고칠 수 없음</p>
+    </form>
+
+    <section data-ui="panel" class="p-5">
+      <div class="flex items-baseline gap-2 mb-3">
+        <h2 class="text-sm font-extrabold">내 할 일</h2>
+        <span id="tCount" data-ui="mute" class="text-[11px]"></span>
+        <a href="/todos.html" data-ui="link" class="ml-auto text-[11px]">보드로</a>
+      </div>
+      <ul id="todos" class="space-y-2"></ul>
+      <p id="tEmpty" data-ui="mute" class="hidden text-[12px]">배정된 할 일이 없음</p>
+    </section>
+  </div>
+
+  <!-- 오른쪽: 내 활동 -->
+  <section data-ui="panel" class="p-5 min-w-0">
+    <div class="flex items-baseline gap-2 mb-3">
+      <h2 class="text-sm font-extrabold">내 활동</h2>
+      <span data-ui="mute" class="text-[11px]">최근 순</span>
+      <span id="aCount" data-ui="mute" class="ml-auto text-[11px]"></span>
+    </div>
+    <ol id="acts" class="space-y-2.5"></ol>
+    <div id="aEmpty" class="hidden px-4 py-10 text-center">
+      <p class="text-sm font-bold">아직 활동이 없음</p>
+      <p data-ui="sub" class="text-[12px] mt-1">회의록을 올리거나 할 일을 처리하면 여기에 쌓임</p>
+    </div>
+  </section>
+</main>
+
+<script>
+  if (App.requireLogin()) (async () => {
+    const { $, esc, api, message, notify, hide, STATUS, toggleUI } = App;
+    App.boot("profile");
+    let me = null, saving = false;
+
+    function renderMe() {
+      $("who").textContent = me.name;
+      $("mail").textContent = me.email;
+      $("avatar").textContent = me.name[0] || "?";
+      $("name").value = me.name;
+      $("role").textContent = me.role || "";
+      $("role").classList.toggle("hidden", !me.role);
+    }
+
+    function clearErrors() {
+      ["errName", "errPw"].forEach((i) => $(i).classList.add("hidden"));
+      [$("name"), $("pw1"), $("pw2")].forEach((el) => toggleUI(el, "errBorder", false));
+      hide($("msg"));
+    }
+    function fieldErr(id, input, text) {
+      $(id).textContent = text; $(id).classList.remove("hidden");
+      toggleUI(input, "errBorder", true);
+    }
+
+    $("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (saving) return;
+      clearErrors();
+      const name = $("name").value.trim(), pw1 = $("pw1").value, pw2 = $("pw2").value;
+      // 화면에서 먼저 거른다. 서버로 보내지 않는다
+      if (!name) { fieldErr("errName", $("name"), "이름을 입력해 주세요"); return; }
+      if (pw1 !== pw2) { fieldErr("errPw", $("pw2"), "비밀번호가 일치하지 않습니다"); return; }
+      if (pw1 && pw1.length < 8) { fieldErr("errPw", $("pw1"), "8자 이상 입력해 주세요"); return; }
+      const patch = {};
+      if (name !== me.name) patch.name = name;   // 이름만 보내면 비밀번호는 그대로
+      if (pw1) patch.password = pw1;
+      if (!Object.keys(patch).length) { notify($("msg"), "blue", "바뀐 내용이 없습니다"); return; }
+      saving = true;
+      $("saveBtn").disabled = true; $("saveBtn").textContent = "저장 중...";
+      try {
+        me = await api("PUT", "/api/auth/me", patch);
+        renderMe();
+        $("pw1").value = ""; $("pw2").value = "";
+        notify($("msg"), "green", "저장했습니다", patch.password ? "다음 로그인부터 새 비밀번호를 씁니다" : "");
+      } catch (err) {
+        if (err.code === "PASSWORD_TOO_WEAK") fieldErr("errPw", $("pw1"), message(err));
+        else notify($("msg"), "red", message(err));
+      }
+      saving = false;
+      $("saveBtn").disabled = false; $("saveBtn").textContent = "저장";
+    });
+
+    $("logoutBtn").onclick = async () => {
+      $("logoutBtn").disabled = true;
+      try { await api("POST", "/api/auth/logout"); } catch (e) { /* 서버가 못 받아도 화면은 로그아웃한다 */ }
+      App.clearSession();
+      App.go("/login.html");
+    };
+
+    try {
+      me = await api("GET", "/api/auth/me");
+      renderMe();
+    } catch (e) { notify($("msg"), "red", message(e)); return; }
+
+    try {
+      const todos = await api("GET", "/api/me/todos");
+      $("todos").innerHTML = todos.map((t) => {
+        const st = STATUS[t.status];
+        const late = App.isLate(t.due_text, t.status);
+        return `
+        <li class="${UI.item} ${STRIPE[late ? "red" : st.color]} px-3.5 py-2.5">
+          <p class="text-[13px] font-bold break-words">${esc(t.what)}</p>
+          <div class="mt-1 flex flex-wrap gap-1.5">
+            <span class="${UI.tagOnChip} ${late ? LABEL.red : UI.sub}">${esc(t.due_text)}</span>
+            <span class="${UI.tagOnChip} font-extrabold ${LABEL[st.color]}">${st.label}</span>
+          </div>
+        </li>`;
+      }).join("");
+      $("tCount").textContent = todos.length ? todos.length + "건" : "";
+      $("tEmpty").classList.toggle("hidden", todos.length > 0);
+    } catch (e) { /* 계정 칸은 그대로 쓸 수 있다 */ }
+
+    try {
+      const acts = await api("GET", "/api/me/activities");
+      $("acts").innerHTML = acts.map((a) => `
+        <li class="${UI.item} ${STRIPE[App.KIND_COLOR[a.kind] || "purple"]} px-3.5 py-2.5">
+          <p class="text-[13px] break-words">${esc(a.text)}</p>
+          <p class="text-[11px] ${UI.mute} mt-0.5">${App.fmtWhen(a.created_at)}  ·  <span class="font-mono">${a.kind}</span></p>
+        </li>`).join("");
+      $("aCount").textContent = acts.length ? acts.length + "건" : "";
+      $("acts").classList.toggle("hidden", acts.length === 0);
+      $("aEmpty").classList.toggle("hidden", acts.length > 0);
+    } catch (e) { /* 위와 같다 */ }
+  })();
+</script>
+</body>
+</html>

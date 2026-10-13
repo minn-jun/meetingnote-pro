@@ -28,7 +28,7 @@
 
 ### Requirement: 로그인과 토큰
 <!-- 근거: 스토리보드 B-01 · B-02 · B-04 / publish/login.html (login · login-fail · login-ok) -->
-시스템은 `POST /api/auth/login` 에서 이메일과 비밀번호가 맞으면 `200` 과 24시간 뒤 만료되는 JWT 를 돌려주어야 한다(SHALL). 토큰 갱신은 없다. 가입 · 로그인 응답 본문은 `token` 과 소속 팀 id `team_id`(없으면 `null`)를 담아야 한다(SHALL). login.html 은 매핑표상 `auth/me` 를 부르지 않으므로 이 값으로 이동할 화면을 정한다. 이메일이 없거나 비밀번호가 틀리면 둘을 구분하지 않고 같은 `401 INVALID_CREDENTIALS` 를 돌려주어야 한다(MUST).
+시스템은 `POST /api/auth/login` 에서 이메일과 비밀번호가 맞으면 `200` 과 24시간 뒤 만료되는 JWT 를 돌려주어야 한다(SHALL). 토큰 갱신은 없다. 가입 · 로그인 응답 본문은 `token` 과 소속 팀의 `team_id` · `team_name`(없으면 둘 다 `null`)을 담아야 한다(SHALL). login.html 은 매핑표상 `auth/me` 를 부르지 않으므로 이 값으로 이동할 화면을 정한다. 이메일이 없거나 비밀번호가 틀리면 둘을 구분하지 않고 같은 `401 INVALID_CREDENTIALS` 를 돌려주어야 한다(MUST).
 
 #### Scenario: 로그인 성공
 - **WHEN** 가입한 이메일과 맞는 비밀번호로 로그인한다

@@ -48,7 +48,7 @@
 ## Impact
 
 - 새 코드: FastAPI 백엔드, Vanilla JS + Tailwind CDN 프론트엔드(화면 6종 + theme.js), pytest 테스트
-- 새 의존성: FastAPI · uvicorn · SQLAlchemy · Postgres 드라이버 · bcrypt · JWT 라이브러리 · OpenAI SDK · pytest 계열
-- 외부 시스템: OpenAI 받아쓰기 · 대화 모델(`STT_API_KEY`), Vercel 배포, Neon Postgres(Vercel Storage)
+- 새 의존성: FastAPI · uvicorn · SQLAlchemy · Postgres 드라이버 · bcrypt · JWT 라이브러리 · google-genai SDK · pytest 계열
+- 외부 시스템: Google Gemini 받아쓰기 · 3항목 구분(`STT_API_KEY`), Vercel 배포, Neon Postgres(Vercel Storage)
 - 환경변수: `JWT_SECRET` · `STT_API_KEY` · `STT_MODEL` · `SUMMARY_MODEL` · `DATABASE_URL` · `MAX_UPLOAD_MB` · `CORS_ORIGINS`
 - publish 폴더는 그대로 두고 참조만 한다. 구현 화면은 별도 폴더에 만든다

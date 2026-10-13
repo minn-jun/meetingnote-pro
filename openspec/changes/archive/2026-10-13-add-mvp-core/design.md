@@ -73,7 +73,7 @@ pyproject.toml       의존성 · Vercel entrypoint
 ### 5. 받아쓰기와 3항목 구분 - 공급자 인터페이스 하나
 
 - `ai.py` 에 `transcribe(bytes, filename) -> str`, `split(body, met_at, member_names) -> {summary, decisions[], todos[{what, assignee_name, due_text}]}` 두 함수를 가진 공급자를 둔다
-- 기본 공급자는 OpenAI SDK. 받아쓰기는 `STT_MODEL`(기본 `gpt-4o-transcribe`), 구분은 `SUMMARY_MODEL` 에 JSON 스키마 구조화 출력으로 받는다. 기본값은 구현 때 OpenAI 문서에서 확인한다 (D2)
+- 기본 공급자는 Google Gemini (`google-genai` SDK). 받아쓰기(`STT_MODEL`)와 구분(`SUMMARY_MODEL`) 모두 기본 `gemini-3.8-flash` 한 모델이다. 받아쓰기는 오디오를 넣어 글자로 받고(12MB 초과는 Files API), 구분은 JSON 스키마 구조화 출력으로 받는다 (D2)
 - 프롬프트에 「지어내지 않는다 · 결정사항은 합의된 것만 · 담당자는 주어진 멤버 이름 중에서만 · 기한은 met_at 기준 YYYY-MM-DD 로」를 넣는다. 서버는 받은 담당자 이름을 멤버 이름과 다시 대조한다 (모델 출력을 믿지 않는다)
 - 앱은 의존성 주입으로 공급자를 받는다. 테스트는 고정 결과를 돌려주는 가짜 공급자로 바꿔 끼운다
 - 공급자 예외는 `502 UPSTREAM_ERROR` 로 바꾼다 (D12)
@@ -102,7 +102,9 @@ pyproject.toml       의존성 · Vercel entrypoint
 
 - `pyproject.toml` 의 `[tool.vercel]` entrypoint 를 `app.main:app` 으로 둔다 (스토리보드 H-01). 정적 화면은 FastAPI StaticFiles 로 함께 낸다
 - 환경변수: `DATABASE_URL`(Neon 연결 시 자동) · `JWT_SECRET` · `STT_API_KEY` · `MAX_UPLOAD_MB=4` · `CORS_ORIGINS`
-- 정확한 Vercel 설정 형식은 배포 작업 때 Vercel 문서로 확인한다
+- Vercel 문서(2026-08 판)로 확인한 것: `tool.vercel.entrypoint` 는 `모듈:변수` 형식이고 `app/main.py` 는 설정 없이도 찾는다. 의존성은 `pyproject.toml` 에서 설치하고 기본 Python 은 3.12 다. 요청 본문 상한은 4.5MB, 기본 최대 실행 시간은 300초다
+- `app.mount()` 의 정적 파일은 원래 CDN 으로 올라가지만, 앱에 최상위 미들웨어(CORS)가 있으면 함수 안에 남아 FastAPI 가 직접 낸다. 그래서 로컬과 같은 순서 규칙(API 라우트 먼저, 화면은 맨 끝)이 배포에서도 그대로다
+- 테이블은 첫 요청 때 만든다 (`get_db` 안에서 한 번). 서버리스에서 시작 순서에 기대지 않으려는 것이다
 
 ### 10. 테스트 - pytest + TestClient
 
@@ -126,6 +128,3 @@ pyproject.toml       의존성 · Vercel entrypoint
 - 배포: Vercel 프로젝트 연결 → Neon 연결(Vercel Storage) → 환경변수 등록 → 배포 → `/docs` 와 `/login.html` 확인
 - 되돌리기: Vercel 의 이전 배포로 되돌린다 (첫 배포는 프로젝트를 내린다)
 
-## Open Questions
-
-- 기본 `SUMMARY_MODEL` 이름 - 구현 때 OpenAI 문서에서 고른다. spec · 작업 분해에는 영향이 없다

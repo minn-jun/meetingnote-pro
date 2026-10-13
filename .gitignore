@@ -26,3 +26,11 @@ __pycache__/
 .claude/todo-guard/
 .claude/todo-guard_걷어내기전_*/
 TODO.md.정리전백업_*
+
+# 로컬 DB · 가상환경 · 테스트 캐시
+meetingnote.db
+*.db
+.venv/
+.pytest_cache/
+*.egg-info/
+.vercel/

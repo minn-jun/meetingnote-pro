@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeetingNote Pro - 회의록 목록</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="theme.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</head>
+
+<body>
+
+<header id="header"></header>
+
+<main class="flex-1 w-full max-w-6xl mx-auto px-4 py-5">
+
+  <!-- 검색 줄 -->
+  <section data-ui="panel" class="p-4 mb-4">
+    <div class="flex flex-col sm:flex-row gap-2.5">
+      <input id="q" type="search" placeholder="제목 또는 참석자로 검색" data-ui="input" class="flex-1">
+      <div class="flex flex-wrap gap-2.5">
+        <input id="from" type="date" aria-label="시작 날짜" data-ui="date"
+          class="flex-1 min-w-0 basis-[calc(50%-0.3125rem)] sm:basis-auto sm:flex-none">
+        <input id="to" type="date" aria-label="끝 날짜" data-ui="date"
+          class="flex-1 min-w-0 basis-[calc(50%-0.3125rem)] sm:basis-auto sm:flex-none">
+        <button id="newBtn" data-ui="btnPrimary" class="w-full sm:w-auto whitespace-nowrap">새 회의록</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 새 회의록 패널 -->
+  <section id="newPanel" data-ui="panel" data-stripe="blue" class="hidden p-5 mb-4">
+    <h2 class="text-sm font-extrabold mb-3">새 회의록</h2>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div>
+        <label for="nTitle" data-ui="label">제목</label>
+        <input id="nTitle" data-ui="input" placeholder="2차 스프린트 계획 회의">
+      </div>
+      <div>
+        <label for="nAt" data-ui="label">회의 시각</label>
+        <input id="nAt" type="datetime-local" data-ui="input">
+      </div>
+      <div class="sm:col-span-2">
+        <label for="nWho" data-ui="label">참석자</label>
+        <input id="nWho" data-ui="input" placeholder="김대리, 박과장, 이주임">
+      </div>
+    </div>
+
+    <!-- 녹취 올리기 - 끌어다 놓거나 눌러서 고른다 -->
+    <div id="dropZone" data-ui="dropzone" class="mt-3" role="button" tabindex="0">
+      <p class="text-[13px] font-bold" id="dropTitle"></p>
+      <p data-ui="mute" class="text-[11px] mt-1" id="dropSub"></p>
+      <div id="progWrap" class="hidden mt-3">
+        <div data-ui="progressTrack"><div id="prog" data-ui="progressBar"></div></div>
+        <p id="progText" data-label="blue" class="mt-1.5 text-[11px] font-bold"></p>
+      </div>
+      <input id="file" type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" class="hidden">
+    </div>
+    <div id="dropErr" class="hidden mt-2.5"></div>
+
+    <textarea id="nBody" rows="4" placeholder="받아쓴 본문 또는 붙여넣은 메모" data-ui="textarea" class="mt-3"></textarea>
+    <div id="formErr" class="hidden mt-2.5"></div>
+
+    <div class="mt-3 flex gap-2.5 justify-end">
+      <button id="cancelBtn" data-ui="btnGhost">취소</button>
+      <button id="saveBtn" data-ui="btnPrimary">정리하기</button>
+    </div>
+    <p data-ui="mute" class="mt-2.5 text-[11px]">저장하면 입력칸은 비워짐. 같은 회의록이 두 번 저장되지 않음</p>
+  </section>
+
+  <div id="toast" class="hidden mb-4"></div>
+
+  <!-- 목록 -->
+  <section>
+    <div class="flex items-baseline gap-2 mb-3">
+      <h2 class="text-sm font-extrabold">회의록</h2>
+      <span id="count" data-ui="mute" class="text-[11px]"></span>
+    </div>
+    <div id="list" class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3"></div>
+    <div id="empty" data-ui="empty" class="hidden">
+      <p class="text-sm font-bold" id="emptyTitle"></p>
+      <p data-ui="sub" class="text-[12px] mt-1" id="emptySub"></p>
+    </div>
+  </section>
+</main>
+
+<script>
+  if (App.requireLogin()) (async () => {
+    const { $, esc, api, message, notify, hide } = App;
+    App.boot("meetings");
+    const MAX_MB = (window.APP_CONFIG && window.APP_CONFIG.maxUploadMb) || 25;
+    let teamId = null, saving = false, uploading = false;
+
+    const card = (m, i) => {
+      const color = App.CARD_COLORS[i % App.CARD_COLORS.length];
+      return `
+      <a href="/detail.html?id=${m.id}" class="${UI.card} ${STRIPE[color]} ${UI.hoverable} block p-4">
+        <div class="flex items-start gap-2">
+          <h3 class="text-[14px] font-extrabold leading-snug flex-1 break-words min-w-0">${esc(m.title)}</h3>
+          <span class="${UI.tag} font-extrabold ${LABEL[color]} shrink-0">${m.todo_done_count}/${m.todo_total_count}</span>
+        </div>
+        <p class="mt-1 text-[11px] ${UI.mute} break-words">${App.fmtDateTime(m.met_at)}${m.attendees ? "  ·  " + esc(m.attendees) : ""}</p>
+        <p class="mt-2 text-[12px] ${UI.sub} leading-relaxed line-clamp-2">${esc(m.summary)}</p>
+        <div class="mt-2.5 flex gap-1.5">
+          <span class="${UI.tag} ${UI.sub}">결정 ${m.decision_count}</span>
+          <span class="${UI.tag} ${UI.sub}">할 일 ${m.todo_total_count}</span>
+        </div>
+      </a>`;
+    };
+
+    function render(rows) {
+      const searching = $("q").value.trim() || $("from").value || $("to").value;
+      $("list").innerHTML = rows.map(card).join("");
+      $("count").textContent = rows.length ? rows.length + "건" : "";
+      $("list").classList.toggle("hidden", rows.length === 0);
+      $("empty").classList.toggle("hidden", rows.length > 0);
+      $("emptyTitle").textContent = searching ? "검색 결과 없음" : "아직 회의록이 없음";
+      $("emptySub").textContent = searching ? "검색어를 지우면 전체 목록으로 돌아감" : "새 회의록 버튼으로 첫 회의를 올려 보기";
+    }
+
+    let seq = 0;
+    async function load() {
+      const p = new URLSearchParams();
+      if ($("q").value.trim()) p.set("q", $("q").value.trim());
+      if ($("from").value) p.set("from", $("from").value);
+      if ($("to").value) p.set("to", $("to").value);
+      const mine = ++seq;
+      try {
+        const rows = await api("GET", `/api/teams/${teamId}/meetings${p.toString() ? "?" + p : ""}`);
+        if (mine === seq) render(rows);   // 늦게 온 앞선 검색 결과는 버린다
+      } catch (e) {
+        if (!App.teamGone(e)) notify($("toast"), "red", message(e));
+      }
+    }
+
+    // ── 새 회의록 패널 ──
+    function resetDrop() {
+      $("dropTitle").textContent = "녹취 파일을 끌어다 놓기";
+      $("dropSub").textContent = `mp3 · wav · ${MAX_MB}MB 이하. 또는 아래에 메모를 붙여넣기`;
+      $("progWrap").classList.add("hidden");
+      $("prog").style.width = "0%";
+      $("file").value = "";
+    }
+    function resetPanel() {
+      $("newPanel").classList.add("hidden");
+      hide($("dropErr")); hide($("formErr"));
+      ["nTitle", "nAt", "nWho", "nBody"].forEach((i) => { $(i).value = ""; });
+      resetDrop();
+      saving = false;
+      $("saveBtn").disabled = false; $("saveBtn").textContent = "정리하기";
+    }
+    $("newBtn").onclick = () => { hide($("toast")); $("newPanel").classList.remove("hidden"); $("nTitle").focus(); };
+    $("cancelBtn").onclick = resetPanel;
+
+    async function sendFile(file) {
+      if (!file || uploading) return;
+      hide($("dropErr"));
+      if (file.size > MAX_MB * 1024 * 1024) {
+        notify($("dropErr"), "red", `${MAX_MB}MB 를 넘는 파일은 올릴 수 없습니다`);
+        return;
+      }
+      uploading = true;
+      const size = (file.size / 1024 / 1024).toFixed(1) + "MB";
+      $("dropTitle").textContent = file.name;
+      $("dropSub").textContent = `${size}  ·  올리는 중`;
+      $("progWrap").classList.remove("hidden");
+      try {
+        const res = await App.upload(file, (pct) => {
+          $("prog").style.width = pct + "%";
+          $("progText").textContent = pct < 100 ? `올리는 중  ${pct}%` : "받아쓰는 중...";
+        });
+        $("nBody").value = res.body;
+        $("dropSub").textContent = `${size}  ·  받아쓰기 완료`;
+        $("progWrap").classList.add("hidden");
+      } catch (e) {
+        resetDrop();
+        notify($("dropErr"), "red", message(e));
+      } finally {
+        uploading = false;
+      }
+    }
+    const zone = $("dropZone");
+    zone.onclick = () => $("file").click();
+    zone.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } };
+    $("file").onclick = (e) => e.stopPropagation();
+    $("file").onchange = () => sendFile($("file").files[0]);
+    ["dragenter", "dragover"].forEach((t) => zone.addEventListener(t, (e) => {
+      e.preventDefault(); App.toggleUI(zone, "dropzoneHot", true);
+    }));
+    ["dragleave", "drop"].forEach((t) => zone.addEventListener(t, (e) => {
+      e.preventDefault(); App.toggleUI(zone, "dropzoneHot", false);
+    }));
+    zone.addEventListener("drop", (e) => sendFile(e.dataTransfer.files[0]));
+
+    $("saveBtn").onclick = async () => {
+      if (saving) return;
+      hide($("formErr"));
+      const title = $("nTitle").value.trim(), at = $("nAt").value, body = $("nBody").value.trim();
+      if (!title || !at || !body) {
+        notify($("formErr"), "red", "제목 · 회의 시각 · 본문은 꼭 입력해 주세요");
+        return;
+      }
+      saving = true;
+      $("saveBtn").disabled = true; $("saveBtn").textContent = "정리 중...";
+      try {
+        await api("POST", `/api/teams/${teamId}/meetings`,
+          { title, met_at: App.localToIso(at), attendees: $("nWho").value.trim(), body });
+        resetPanel();   // 입력칸을 비워 같은 회의록이 두 번 저장되지 않게 한다
+        notify($("toast"), "green", "회의록을 저장했습니다", "요약 · 결정사항 · 할 일로 나누었습니다");
+        load();
+      } catch (e) {
+        notify($("formErr"), "red", message(e));
+        saving = false;
+        $("saveBtn").disabled = false; $("saveBtn").textContent = "정리하기";
+      }
+    };
+
+    let timer = null;
+    $("q").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(load, 250); });
+    $("from").addEventListener("change", load);
+    $("to").addEventListener("change", load);
+
+    // 진입 - 로그인과 소속 팀 확인 (매핑표: auth/me)
+    resetDrop();
+    try {
+      const me = await api("GET", "/api/auth/me");
+      if (!me.role) { App.setTeam(null); App.go("/team.html"); return; }
+    } catch (e) { notify($("toast"), "red", message(e)); return; }
+    teamId = App.requireTeam();
+    if (teamId != null) load();
+  })();
+</script>
+</body>
+</html>

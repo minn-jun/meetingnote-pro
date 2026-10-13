@@ -1,10 +1,9 @@
-# Spec Delta
+# platform Specification
 
 ## Purpose
-
 모든 기능이 함께 따르는 API 규약 · Swagger UI · 화면 제공과 디자인 규칙 · 데이터베이스 전환 · 배포 조건을 한곳에 정한다.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: API 공통 규약
 <!-- 근거: 정의서 7 · 7-2 · 8-1 (Examples) / 스토리보드 I-01 -->
@@ -32,7 +31,7 @@
 
 ### Requirement: 화면 제공
 <!-- 근거: 정의서 7-2 (정적 파일 경로) · 스토리보드 H-01 / publish/index.html -->
-서버는 화면 6종을 `/login.html` · `/meetings.html` · `/detail.html` · `/todos.html` · `/team.html` · `/profile.html` 처럼 확장자를 붙인 경로로 제공해야 한다(SHALL). `/` 는 `/login.html` 로 보낸다. 화면 경로가 `/api/` · `/docs` · `/openapi.json` 을 가리면 안 된다(MUST NOT). 상세 화면은 `/detail.html?id=<회의록 id>` 로 연다. 로그인하지 않은 채 login.html 밖 화면을 열면 login.html 로 보낸다.
+서버는 화면 6종을 `/login.html` · `/meetings.html` · `/detail.html` · `/todos.html` · `/team.html` · `/profile.html` 처럼 확장자를 붙인 경로로 제공해야 한다(SHALL). `/` 는 `/login.html` 로 보낸다. 화면 경로가 `/api/` · `/docs` · `/openapi.json` 을 가리면 안 된다(MUST NOT). 상세 화면은 `/detail.html?id=<회의록 id>` 로 연다. 화면이 업로드 상한 안내 숫자를 서버 설정대로 보이도록 `/config.js`(화면용 스크립트, API 아님)로 `MAX_UPLOAD_MB` 값을 내려 준다 (D15). 로그인하지 않은 채 login.html 밖 화면을 열면 login.html 로 보낸다.
 
 #### Scenario: 루트 진입
 - **WHEN** `/` 를 연다
