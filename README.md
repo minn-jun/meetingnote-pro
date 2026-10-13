@@ -4,9 +4,23 @@
 
 - 백엔드: FastAPI + SQLAlchemy (로컬 SQLite · 배포 Neon Postgres)
 - 화면: Vanilla JS + Tailwind CDN. `frontend/` 의 화면 6종을 FastAPI 가 함께 낸다
-- 받아쓰기 · 3항목 구분: Google Gemini (`gemini-3.8-flash`)
-- 설계 문서: `docs/` (정의서 · 스토리보드 · 디자인 시스템 · 결정사항), `openspec/changes/add-mvp-core/`
+- 받아쓰기 · 3항목 구분: Google Gemini (기본 `gemini-3.8-flash`, `.env` 에서 바꿀 수 있음)
+- 설계 문서: `docs/` (정의서 · 스토리보드 · 디자인 시스템 · 결정사항)
+- 동작 명세: `openspec/specs/` 7묶음 (OpenSpec)
 - 확정 디자인 시안: `publish/` (참고용. 구현 화면은 `frontend/`)
+
+## 무엇을 할 수 있나
+
+| 화면 | 주소 | 하는 일 |
+|---|---|---|
+| 로그인 · 회원가입 | `/login.html` | 이메일 · 비밀번호로 가입하고 로그인. 가입할 때 초대코드를 넣으면 바로 팀에 합류 |
+| 회의록 목록 | `/meetings.html` | 제목 · 참석자 검색, 기간 필터. 녹취(mp3 · wav)를 올려 받아쓰고 「정리하기」로 저장 |
+| 회의록 상세 | `/detail.html?id=` | 요약 · 결정사항 · 할 일 3단, 담당자 배정, 받아쓴 본문, 댓글 |
+| 할 일 칸반 | `/todos.html` | 대기 · 진행 · 완료 3열. 카드를 끌거나 눌러서 옮기고, 담당자 · 기한을 바꿈 |
+| 팀 설정 | `/team.html` | 팀 만들기 · 초대코드 합류, 초대코드 복사 · 재발급, 멤버, 활동 기록 |
+| 내 정보 | `/profile.html` | 이름 · 비밀번호 변경, 내 할 일, 내 활동, 로그아웃 |
+
+권한은 owner 와 member 둘이다. 팀 이름 변경 · 초대코드 재발급 · 할 일 삭제는 owner 만 하고, 회의록과 댓글은 쓴 사람과 owner 가 고치고 지운다. 한 사람은 팀 하나에 속하고 팀은 6명까지다.
 
 ## 로컬 실행
 
@@ -49,7 +63,20 @@ uvicorn app.main:app --reload
 pytest
 ```
 
-임시 SQLite 와 가짜 받아쓰기 공급자로 돌기 때문에 API 키 없이 돈다. 기능 묶음마다 파일이 하나씩 있다 (`tests/test_auth.py` · `test_team.py` · `test_meeting.py` · `test_todo.py` · `test_comment.py` · `test_activity.py` · `test_platform.py` · `test_integration.py`).
+103개가 있고, 임시 SQLite 와 가짜 받아쓰기 공급자로 돌기 때문에 API 키 없이 돈다. 기능 묶음마다 파일이 하나씩 있다 (`tests/test_auth.py` · `test_team.py` · `test_meeting.py` · `test_todo.py` · `test_comment.py` · `test_activity.py` · `test_platform.py` · `test_integration.py`).
+
+## API
+
+모든 경로는 `/api/` 로 시작하고 26개다. 가입 · 로그인을 뺀 나머지는 `Authorization: Bearer <token>` 이 필요하다. 요청 · 응답 형식은 `/docs` 에서 본다.
+
+| 묶음 | 개수 | 경로 |
+|---|---|---|
+| Auth | 5 | `POST /auth/signup` · `POST /auth/login` · `GET /auth/me` · `PUT /auth/me` · `POST /auth/logout` |
+| Team | 6 | `POST /teams` · `GET /teams` · `POST /teams/join` · `GET /teams/{id}/members` · `PUT /teams/{id}/code` · `PUT /teams/{id}` |
+| Meeting | 6 | `POST /teams/{id}/meetings` · `GET /teams/{id}/meetings` · `GET /meetings/{id}` · `PUT /meetings/{id}` · `DELETE /meetings/{id}` · `POST /upload` |
+| Todo | 4 | `GET /teams/{id}/todos` · `PUT /todos/{id}` · `GET /me/todos` · `DELETE /todos/{id}` |
+| Comment | 3 | `POST /meetings/{id}/comments` · `GET /meetings/{id}/comments` · `DELETE /comments/{id}` |
+| Activity | 2 | `GET /teams/{id}/activities` · `GET /me/activities` |
 
 ## 환경변수
 
@@ -57,7 +84,7 @@ pytest
 |---|---|---|
 | `JWT_SECRET` | (개발용 값) | JWT 서명 키. 배포에서는 꼭 바꾼다 |
 | `STT_API_KEY` | 없음 | Gemini API 키 |
-| `STT_MODEL` · `SUMMARY_MODEL` | `gemini-3.8-flash` | 받아쓰기 · 3항목 구분 모델 |
+| `STT_MODEL` · `SUMMARY_MODEL` | `gemini-3.8-flash` | 받아쓰기 · 3항목 구분 모델. 오디오 입력과 구조화 출력(JSON)을 지원하는 Gemini 모델이어야 한다 (예: `gemini-3.1-flash-lite`) |
 | `DATABASE_URL` | 없음 | 있으면 Postgres, 없으면 로컬 SQLite |
 | `MAX_UPLOAD_MB` | `25` | 녹취 업로드 상한. Vercel 배포는 `4` |
 | `CORS_ORIGINS` | 로컬 주소 | 허용 출처. 쉼표로 구분 |
@@ -86,5 +113,17 @@ frontend/    화면 6종 + theme.js (색 · 클래스 규칙) + app.js (공통)
 tests/       pytest
 docs/        설계 PDF 3종 · 결정사항.md
 publish/     확정 디자인 시안 (손대지 않는다)
-openspec/    OpenSpec 변경안
+openspec/    OpenSpec 명세와 변경 기록
 ```
+
+## 명세와 결정 기록
+
+- `openspec/specs/` - 지금 시스템이 지켜야 하는 동작 명세 7묶음: `auth` · `team` · `meeting` · `todo` · `comment` · `activity` · `platform`. 요구사항마다 근거 스토리보드 번호와 퍼블리싱 파일이 적혀 있다
+- `openspec/changes/archive/2026-10-13-add-mvp-core/` - 1회차 MVP 를 만든 변경안 (proposal · design · tasks). 구현이 끝나 보관했다
+- `docs/결정사항.md` - 설계 문서에 없거나 서로 어긋나 따로 정한 것 (D1~D15). 모두 잠정 결정이라, 바꿀 때는 이 파일을 먼저 고친다
+- 기능을 더하거나 바꿀 때는 `/opsx:propose <이름>` 으로 변경안을 만들고 `/opsx:apply` · `/opsx:archive` 순으로 진행한다
+
+## 아직 확인하지 않은 것
+
+- 실제 Gemini 키로 받아쓰기 · 3항목 구분이 되는지 (자동 테스트는 가짜 공급자로 돈다)
+- Vercel 실제 배포
